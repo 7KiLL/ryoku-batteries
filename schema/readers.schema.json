@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ryoku-batteries/readers.v1.schema.json",
+  "title": "Ryoku Batteries readers",
+  "description": "Which battery readers the Batteries bar widget runs. Global display options live in QS Bar Settings; this file is per-reader.",
+  "type": "object",
+  "required": ["readers"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1, "description": "Config format version." },
+    "readers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/reader" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "reader": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "Unique name; also the device key prefix, so renaming it resets bar visibility." },
+        "builtin": { "enum": ["upower", "headsetcontrol"], "description": "A reader shipped with the plugin." },
+        "cmd": {
+          "type": "array", "minItems": 1, "items": { "type": "string" },
+          "description": "argv of your own reader, run without a shell. Leading ~ is expanded. It must print {\"devices\": [...]} (see README).",
+          "examples": [["~/.config/ryoku-batteries/readers/my-device"]]
+        },
+        "enabled": { "type": "boolean", "default": true },
+        "interval": { "type": "integer", "minimum": 0, "default": 0, "description": "Seconds between runs; 0 = every poll (the Poll interval setting)." },
+        "timeout": { "type": "integer", "minimum": 1, "maximum": 60, "default": 10, "description": "Seconds before the reader is killed and shown as an error." },
+        "label": { "type": "string", "description": "Display name; applies when the reader reports exactly one device." },
+        "kind": { "type": "string", "examples": ["mouse", "headset", "keyboard", "gamepad"], "description": "Picks the icon. Overrides what the reader reports." },
+        "icon": { "type": "string", "description": "A Nerd Font glyph to use instead of the kind's icon." }
+      },
+      "oneOf": [{ "required": ["builtin"] }, { "required": ["cmd"] }],
+      "additionalProperties": false
+    }
+  }
+}

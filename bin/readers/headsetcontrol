@@ -10,4 +10,4 @@ else:
     data = json.loads(out or '{"devices": []}')
     for d in data.get("devices", []):
         d.setdefault("kind", "headset")
-    print(json.dumps({"devices": data.get("devices", [])}))
+    print(json.dumps({"api_version": "1", "devices": data.get("devices", [])}))

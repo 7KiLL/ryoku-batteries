@@ -1,74 +1,159 @@
 #!/usr/bin/env python3
-"""Run every battery reader and print the merged device list.
+"""Run the readers listed in readers.json and print the merged device list.
 
-Readers are executables in <plugin>/bin/readers/ (shipped) and
-$XDG_CONFIG_HOME/ryoku/batteries.d/ (yours). Each is run with no arguments and
-no shell, and prints {"devices": [{device, product, kind, battery: {status, level}, errors}]}
-(headsetcontrol's JSON shape; see README). Output adds `key` and `reader` per device.
+  batteries <config> <stateDir>   poll: print {"devices": [...]}
+  batteries --edit <config>       create <config> from the template if missing, open it
+  batteries --test                self-test
+
+No config file = the built-in readers (upower, headsetcontrol). A reader is a
+built-in (bin/readers/<name>) or any argv; it prints headsetcontrol-shaped JSON
+(see README and schema/readers.schema.json).
 """
-import json, os, subprocess, sys
+import json, os, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-USER_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
-                        "ryoku", "batteries.d")
-TIMEOUT = 15  # a hung reader costs one row, not the whole poll
+BUILTINS = sorted(os.listdir(os.path.join(HERE, "readers")))
+DEFAULT = {"version": 1, "readers": [{"id": b, "builtin": b} for b in ("upower", "headsetcontrol")]}
+DEFAULT_TIMEOUT = 10
 
 
-def readers():
-    for d in (os.path.join(HERE, "readers"), USER_DIR):
-        if os.path.isdir(d):
-            for f in sorted(os.listdir(d)):
-                p = os.path.join(d, f)
-                if os.path.isfile(p) and os.access(p, os.X_OK) and not f.startswith("."):
-                    yield p
+def err_row(rid, msg):
+    return {"key": rid, "reader": rid, "product": rid, "kind": "", "icon": "",
+            "status": "BATTERY_UNAVAILABLE", "level": -1, "error": msg}
 
 
-def normalize(name, text):
-    """Reader stdout -> device rows. Anything malformed becomes one error row."""
+def load_config(path):
+    """(readers, error_rows). A broken config never blanks the widget: it shows why."""
+    if not os.path.exists(path):
+        return DEFAULT["readers"], []
+    try:
+        cfg = json.load(open(path))
+    except (OSError, ValueError) as e:
+        return [], [err_row("readers.json", f"cannot parse: {e}")]
+    if cfg.get("version", 1) != 1:
+        return [], [err_row("readers.json", f"unsupported version {cfg.get('version')}")]
+    readers, errors, seen = [], [], set()
+    for i, r in enumerate(cfg.get("readers", [])):
+        rid = r.get("id") if isinstance(r, dict) else None
+        if not isinstance(rid, str) or not rid or rid in seen:
+            errors.append(err_row(f"readers[{i}]", "missing or duplicate id")); continue
+        seen.add(rid)
+        if not r.get("enabled", True):
+            continue
+        has_b, has_c = "builtin" in r, "cmd" in r
+        if has_b == has_c:
+            errors.append(err_row(rid, "needs exactly one of builtin / cmd")); continue
+        if has_b and r["builtin"] not in BUILTINS:
+            errors.append(err_row(rid, f"unknown builtin {r['builtin']!r} (have: {', '.join(BUILTINS)})")); continue
+        if has_c and not (isinstance(r["cmd"], list) and r["cmd"] and all(isinstance(a, str) for a in r["cmd"])):
+            errors.append(err_row(rid, "cmd must be a non-empty list of strings")); continue
+        readers.append(r)
+    return readers, errors
+
+
+def normalize(r, text):
+    """Reader stdout -> device rows, with the reader's label/kind/icon overrides applied."""
+    rid = r["id"]
     try:
         devs = json.loads(text)["devices"]
         assert isinstance(devs, list)
     except Exception:
-        return [{"key": name, "reader": name, "product": name, "kind": "",
-                 "status": "BATTERY_UNAVAILABLE", "level": -1, "error": "invalid output"}]
+        return [err_row(rid, "invalid output")]
     rows = []
     for d in devs:
         b = d.get("battery") or {}
         level = b.get("level", -1)
+        product = d.get("product") or d.get("device") or rid
         rows.append({
-            "key": f"{name}:{d.get('product') or d.get('device') or len(rows)}",
-            "reader": name,
-            "product": d.get("product") or d.get("device") or name,
-            "kind": d.get("kind", ""),
+            "key": f"{rid}:{product}",
+            "reader": rid,
+            # Overrides only make sense when the reader reports one device.
+            "product": r.get("label") if r.get("label") and len(devs) == 1 else product,
+            "kind": r.get("kind") or d.get("kind", ""),
+            "icon": r.get("icon", ""),
             "status": b.get("status", "BATTERY_UNAVAILABLE"),
-            "level": level if isinstance(level, int) else -1,
+            "level": level if isinstance(level, int) and -1 <= level <= 100 else -1,
             "error": (d.get("errors") or {}).get("battery", ""),
         })
     return rows
 
 
-def run(path):
-    name = os.path.basename(path)
+def run(r):
+    argv = [os.path.join(HERE, "readers", r["builtin"])] if "builtin" in r else [os.path.expanduser(r["cmd"][0])] + r["cmd"][1:]
+    timeout = r.get("timeout", DEFAULT_TIMEOUT)
     try:
-        p = subprocess.run([path], capture_output=True, text=True, timeout=TIMEOUT)
-        return normalize(name, p.stdout)
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)  # argv, never a shell
+        return normalize(r, p.stdout)
     except subprocess.TimeoutExpired:
-        return [{**normalize(name, "")[0], "error": f"timed out after {TIMEOUT}s"}]
+        return [err_row(r["id"], f"timed out after {timeout}s")]
     except OSError as e:
-        return [{**normalize(name, "")[0], "error": str(e)}]
+        return [err_row(r["id"], str(e))]
+
+
+def poll(config, state):
+    readers, errors = load_config(config)
+    os.makedirs(state, exist_ok=True)
+    cache_path = os.path.join(state, "cache.json")
+    try:
+        cache = json.load(open(cache_path))
+    except (OSError, ValueError):
+        cache = {}
+    now = time.time()
+    # Readers with an `interval` reuse their cached rows until it elapses.
+    # ponytail: a failed run replaces the cache; keep-last-good if flaky readers show up.
+    due = [r for r in readers if now - cache.get(r["id"], {}).get("t", 0) >= r.get("interval", 0)]
+    with ThreadPoolExecutor() as ex:
+        for r, rows in zip(due, ex.map(run, due)):
+            cache[r["id"]] = {"t": now, "rows": rows}
+    ids = {r["id"] for r in readers}
+    cache = {k: v for k, v in cache.items() if k in ids}
+    tmp = cache_path + ".tmp"
+    json.dump(cache, open(tmp, "w")); os.replace(tmp, cache_path)
+    return {"devices": [row for r in readers for row in cache[r["id"]]["rows"]] + errors}
+
+
+def template():
+    return {"$schema": "file://" + os.path.join(os.path.dirname(HERE), "schema", "readers.schema.json"),
+            "version": 1,
+            "readers": DEFAULT["readers"] + [
+                {"id": "example", "cmd": ["~/.config/ryoku-batteries/readers/my-device"],
+                 "enabled": False, "kind": "keyboard", "interval": 120, "timeout": 5}]}
+
+
+def edit(config):
+    config = os.path.expanduser(config)
+    if not os.path.exists(config):  # never overwrites an existing file
+        os.makedirs(os.path.dirname(config), exist_ok=True)
+        with open(config, "x") as f:
+            json.dump(template(), f, indent=2); f.write("\n")
+    os.execvp("xdg-open", ["xdg-open", config])
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] == ["--test"]:
-        good = normalize("r", '{"devices":[{"product":"Kbd","kind":"keyboard","battery":{"status":"BATTERY_CHARGING","level":62}}]}')
-        assert good[0]["key"] == "r:Kbd" and good[0]["level"] == 62 and good[0]["kind"] == "keyboard"
-        assert normalize("r", "garbage")[0]["error"] == "invalid output"
-        assert normalize("r", '{"devices":[{"battery":{"level":"x"}}]}')[0]["level"] == -1
-        assert normalize("r", '{"devices":[]}') == []
+    a = sys.argv[1:]
+    if a == ["--test"]:
+        import tempfile
+        r = {"id": "kbd", "label": "Rainy", "kind": "keyboard"}
+        row = normalize(r, '{"devices":[{"product":"Kbd","battery":{"status":"BATTERY_CHARGING","level":62}}]}')[0]
+        assert (row["key"], row["product"], row["kind"], row["level"]) == ("kbd:Kbd", "Rainy", "keyboard", 62)
+        assert normalize(r, "garbage")[0]["error"] == "invalid output"
+        assert normalize(r, '{"devices":[{"battery":{"level":900}}]}')[0]["level"] == -1
+        d = tempfile.mkdtemp(); c = os.path.join(d, "r.json")
+        assert load_config(c)[0] == DEFAULT["readers"]
+        json.dump({"readers": [{"id": "a", "builtin": "nope"}, {"id": "b", "cmd": "sh -c x"},
+                               {"id": "c", "cmd": ["true"], "enabled": False}, {"id": "a", "cmd": ["x"]}]}, open(c, "w"))
+        rs, es = load_config(c)
+        assert rs == [] and [e["reader"] for e in es] == ["a", "b", "readers[3]"], es
+        json.dump({"readers": [{"id": "t", "cmd": ["sh", "-c", 'echo \'{"devices":[{"product":"T","battery":{"level":5}}]}\''],
+                                "interval": 3600}]}, open(c, "w"))
+        assert poll(c, d)["devices"][0]["level"] == 5
+        json.dump({"t": {"t": time.time(), "rows": [err_row("t", "cached")]}}, open(os.path.join(d, "cache.json"), "w"))
+        assert poll(c, d)["devices"][0]["error"] == "cached"  # interval respected
         print("ok"); sys.exit()
-    if os.environ.get("BATTERIES_STATE"):  # the panel's bar.json lives here
-        os.makedirs(os.environ["BATTERIES_STATE"], exist_ok=True)
-    with ThreadPoolExecutor() as ex:
-        rows = [r for rs in ex.map(run, list(readers())) for r in rs]
-    print(json.dumps({"devices": rows}))
+    if len(a) == 2 and a[0] == "--edit":
+        edit(a[1])
+    elif len(a) == 2:
+        print(json.dumps(poll(os.path.expanduser(a[0]), a[1])))
+    else:
+        sys.exit(__doc__)

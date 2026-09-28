@@ -1,18 +1,25 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
-// Runs bin/batteries (which runs every reader script, see README) on a timer
-// and keeps which devices the bar shows in <stateDir>/bar.json.
+// Runs `bin/batteries <config> <stateDir>` on a timer (it runs the readers from
+// readers.json, see README) and keeps which devices the bar shows in
+// <stateDir>/bar.json.
 Item {
     id: svc
 
     property var pluginApi
     readonly property var settings: pluginApi ? pluginApi.pluginSettings : null
-    readonly property int pollSec: settings ? (settings.pollSec ?? 60) : 60
+    // Hub > Add-ons stores int settings as strings; Number() covers both surfaces.
+    readonly property int pollSec: Number(settings ? (settings.pollSec ?? 60) : 60) || 60
+    readonly property string configPath: {
+        const p = String(settings ? (settings.configPath || "") : "") || "~/.config/ryoku-batteries/readers.json";
+        return p.startsWith("~/") ? Quickshell.env("HOME") + p.slice(1) : p;
+    }
 
-    // [{ key, reader, product, kind, status, level, error }]
+    // [{ key, reader, product, kind, icon, status, level, error }]
     property var devices: []
     readonly property bool busy: proc.running
 
@@ -35,16 +42,34 @@ Item {
         if (svc.pluginApi && !proc.running) proc.running = true; // a slow poll never stacks up
     }
 
+    // Creates readers.json from the template if missing, then opens it.
+    function editConfig() {
+        if (svc.pluginApi) editProc.running = true;
+    }
+
     onPluginApiChanged: refresh()
+    onConfigPathChanged: refresh()
 
     Process {
         id: proc
-        command: [svc.pluginApi ? svc.pluginApi.pluginDir + "/bin/batteries" : "true"]
-        environment: ({ BATTERIES_STATE: svc.pluginApi ? svc.pluginApi.stateDir : "" })
+        command: svc.pluginApi ? [svc.pluginApi.pluginDir + "/bin/batteries", svc.configPath, svc.pluginApi.stateDir] : ["true"]
         stdout: StdioCollector { id: out }
         onExited: {
             try { svc.devices = JSON.parse(out.text).devices || []; } catch (e) {}
         }
+    }
+
+    Process {
+        id: editProc
+        command: svc.pluginApi ? [svc.pluginApi.pluginDir + "/bin/batteries", "--edit", svc.configPath] : ["true"]
+    }
+
+    // Saving readers.json applies it right away.
+    FileView {
+        path: svc.configPath
+        watchChanges: true
+        printErrors: false // absent until created
+        onFileChanged: svc.refresh()
     }
 
     FileView {

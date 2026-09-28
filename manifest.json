@@ -1,9 +1,9 @@
 {
-  "id": "headset",
+  "id": "batteries",
   "name": "Batteries",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "author": "l7kill <7killua@gmail.com>",
-  "description": "Device batteries on the bar from drop-in reader scripts (headsetcontrol and WLMouse built in).",
+  "description": "Peripheral batteries on the bar: UPower and headsetcontrol built in, plus your own reader commands from one JSON config.",
   "license": "MIT",
   "official": false,
   "hosts": [
@@ -20,7 +20,8 @@
   "files": [
     "bin/batteries",
     "bin/readers/headsetcontrol",
-    "bin/readers/wlmouse"
+    "bin/readers/upower",
+    "schema/readers.schema.json"
   ],
   "capabilities": {
     "densities": [
@@ -34,7 +35,10 @@
   },
   "dependencies": {
     "commands": [
-      "python3"
+      "python3",
+      "upower",
+      "headsetcontrol",
+      "xdg-open"
     ]
   },
   "metadata": {
@@ -70,6 +74,14 @@
         "default": 60,
         "min": 10,
         "max": 600
+      },
+      {
+        "key": "configPath",
+        "type": "text",
+        "label": "Readers config (JSON)",
+        "group": "Readers",
+        "default": "~/.config/ryoku-batteries/readers.json",
+        "placeholder": "~/.config/ryoku-batteries/readers.json"
       }
     ]
   }

@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""Peripheral batteries from UPower (Bluetooth, Logitech HID++, gamepads, ...).
+Skips the laptop battery and mains (power supply: yes) and the DisplayDevice."""
+import json, shutil, subprocess, sys
+
+KINDS = {"mouse": "mouse", "keyboard": "keyboard", "headset": "headset", "headphones": "headset",
+         "gaming-input": "gamepad", "phone": "phone", "tablet": "tablet", "pen": "pen", "touchpad": "touchpad"}
+
+
+def parse(text):
+    """`upower -i <path>` text -> reader device dict, or None to skip."""
+    kv, kind = {}, None
+    for line in text.splitlines():
+        s = line.strip()
+        if ":" in s:
+            k, v = s.split(":", 1)
+            kv[k.strip()] = v.strip()
+        elif s and line.startswith("  ") and not line.startswith("    "):
+            kind = s  # the device-type line, e.g. "  mouse"
+    if kv.get("power supply") == "yes" or kv.get("present") == "no" or "percentage" not in kv:
+        return None
+    try:
+        level = round(float(kv["percentage"].split("%")[0].replace(",", ".")))
+    except ValueError:
+        level = -1
+    name = " ".join(x for x in (kv.get("vendor"), kv.get("model")) if x) or kind or "Device"
+    state = kv.get("state", "")
+    return {"device": name, "product": kv.get("model") or name, "kind": KINDS.get(kind, kind or ""),
+            "battery": {"status": "BATTERY_CHARGING" if state in ("charging", "pending-charge")
+                        else "BATTERY_AVAILABLE", "level": level}}
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] == ["--test"]:
+        sample = """  native-path:          hidpp_battery_0
+  vendor:               Logitech
+  model:                G502 LIGHTSPEED
+  power supply:         no
+  mouse
+    present:             yes
+    state:               charging
+    percentage:          55%
+"""
+        d = parse(sample)
+        assert d["kind"] == "mouse" and d["battery"] == {"status": "BATTERY_CHARGING", "level": 55}, d
+        assert parse(sample.replace("power supply:         no", "power supply:         yes")) is None
+        assert parse("  power supply: no\n  unknown\n") is None
+        print("ok"); sys.exit()
+    devices = []
+    if shutil.which("upower"):
+        for path in subprocess.run(["upower", "-e"], capture_output=True, text=True).stdout.split():
+            if path.endswith("/DisplayDevice"):
+                continue
+            d = parse(subprocess.run(["upower", "-i", path], capture_output=True, text=True).stdout)
+            if d:
+                devices.append(d)
+    print(json.dumps({"api_version": "1", "devices": devices}))

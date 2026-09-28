@@ -47,6 +47,26 @@ Item {
             }
 
             Text {
+                anchors.right: refreshIcon.left
+                anchors.rightMargin: 14 * root.s
+                anchors.verticalCenter: parent.verticalCenter
+                text: "\u{f03eb}" // nf-md pencil: edit readers.json
+                color: editArea.containsMouse ? Theme.accent : Theme.dim
+                font.family: Theme.mono
+                font.pixelSize: 15 * root.s
+
+                MouseArea {
+                    id: editArea
+                    anchors.fill: parent
+                    anchors.margins: -6 * root.s
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: if (root.service) { root.service.editConfig(); root.pluginApi.closePanel(); }
+                }
+            }
+
+            Text {
+                id: refreshIcon
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 text: "\u{f0450}" // nf-md refresh

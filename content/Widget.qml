@@ -14,16 +14,19 @@ Item {
 
     readonly property var service: pluginApi ? pluginApi.mainInstance : null
     readonly property var cfg: pluginApi ? pluginApi.pluginSettings : ({})
-    readonly property int low: cfg.lowPercent ?? 15
+    readonly property int low: Number(cfg.lowPercent ?? 15) || 15
     readonly property bool showPercent: cfg.showPercent ?? true
     readonly property bool hideOffline: cfg.hideOffline ?? false
     readonly property var shown: service ? service.barDevices.filter(d => d.level >= 0 || !hideOffline) : []
 
+    // Nerd Font (Material Design) glyph per kind; a reader's `icon` wins.
+    readonly property var kindIcons: ({
+        mouse: "\u{f037d}", headset: "\u{f02cb}", keyboard: "\u{f030c}",
+        gamepad: "\u{f0296}", phone: "\u{f011c}", tablet: "\u{f04f7}"
+    })
     function icon(d) {
-        if (d.status === "BATTERY_CHARGING") return "\u{f0084}"; // nf-md battery_charging
-        if (d.kind === "mouse") return "\u{f037d}";                // nf-md mouse
-        if (d.kind === "headset") return "\u{f02cb}";              // nf-md headphones
-        return "\u{f0079}";                                        // nf-md battery
+        if (d.status === "BATTERY_CHARGING") return "\u{f0084}"; // battery_charging
+        return d.icon || root.kindIcons[d.kind] || "\u{f0079}";   // battery
     }
 
     visible: shown.length > 0
