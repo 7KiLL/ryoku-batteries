@@ -2,8 +2,8 @@
   "id": "headset",
   "name": "Headset",
   "version": "0.1.0",
-  "author": "l7kill \u003c7killua@gmail.com\u003e",
-  "description": "Headset is a Ryoku shell plugin.",
+  "author": "l7kill <7killua@gmail.com>",
+  "description": "Wireless headset battery on the bar, via headsetcontrol.",
   "license": "MIT",
   "official": false,
   "hosts": [
@@ -29,16 +29,43 @@
     "label": "Headset"
   },
   "dependencies": {
-    "commands": []
+    "commands": [
+      "headsetcontrol"
+    ]
   },
   "metadata": {
     "settings": [
       {
-        "key": "showCount",
+        "key": "showPercent",
         "type": "toggle",
-        "label": "Show the tick count",
+        "label": "Show percentage",
         "group": "Headset",
         "default": true
+      },
+      {
+        "key": "hideOffline",
+        "type": "toggle",
+        "label": "Hide when headset is off",
+        "group": "Headset",
+        "default": false
+      },
+      {
+        "key": "lowPercent",
+        "type": "int",
+        "label": "Low battery warning (%)",
+        "group": "Headset",
+        "default": 15,
+        "min": 5,
+        "max": 50
+      },
+      {
+        "key": "pollSec",
+        "type": "int",
+        "label": "Poll interval (seconds)",
+        "group": "Headset",
+        "default": 60,
+        "min": 10,
+        "max": 600
       }
     ]
   }
