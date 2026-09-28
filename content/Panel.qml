@@ -38,7 +38,7 @@ Item {
 
             Text {
                 id: title
-                text: "Headset"
+                text: "Batteries"
                 color: Theme.bright
                 font.family: Theme.display
                 font.pixelSize: 16 * root.s
@@ -68,7 +68,7 @@ Item {
             visible: root.devices.length === 0
             width: parent.width
             wrapMode: Text.Wrap
-            text: root.service && root.service.error ? root.service.error : "No supported headset found."
+            text: root.service && root.service.error ? root.service.error : "No devices found."
             color: Theme.dim
             font.family: Theme.font
             font.pixelSize: 13 * root.s

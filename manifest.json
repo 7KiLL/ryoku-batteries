@@ -1,9 +1,9 @@
 {
   "id": "headset",
-  "name": "Headset",
-  "version": "0.1.1",
+  "name": "Batteries",
+  "version": "0.2.0",
   "author": "l7kill <7killua@gmail.com>",
-  "description": "Wireless headset battery on the bar, via headsetcontrol.",
+  "description": "Headset and WLMouse battery on the bar (headsetcontrol + hidraw).",
   "license": "MIT",
   "official": false,
   "hosts": [
@@ -17,7 +17,9 @@
   "panel": {
     "width": 320
   },
-  "files": [],
+  "files": [
+    "bin/wlmouse-battery"
+  ],
   "capabilities": {
     "densities": [
       "glyph",
@@ -26,15 +28,30 @@
   },
   "defaults": {
     "host": "topbarGlyph",
-    "label": "Headset"
+    "label": "Batteries"
   },
   "dependencies": {
     "commands": [
-      "headsetcontrol"
+      "headsetcontrol",
+      "python3"
     ]
   },
   "metadata": {
     "settings": [
+      {
+        "key": "headset",
+        "type": "toggle",
+        "label": "Headsets (headsetcontrol)",
+        "group": "Devices",
+        "default": true
+      },
+      {
+        "key": "wlmouse",
+        "type": "toggle",
+        "label": "WLMouse",
+        "group": "Devices",
+        "default": true
+      },
       {
         "key": "showPercent",
         "type": "toggle",
