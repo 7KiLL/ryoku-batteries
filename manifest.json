@@ -85,5 +85,13 @@
         "placeholder": "~/.config/ryoku-batteries/readers.json"
       }
     ]
-  }
+  },
+  "tags": [
+    "battery",
+    "headset",
+    "mouse",
+    "upower",
+    "headsetcontrol",
+    "bar-widget"
+  ]
 }
