@@ -93,5 +93,6 @@
     "upower",
     "headsetcontrol",
     "bar-widget"
-  ]
+  ],
+  "upstream": "https://github.com/7KiLL/ryoku-batteries"
 }

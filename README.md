@@ -22,8 +22,11 @@ UPower, headsetcontrol, or any command you point it at.
 
 ## Install
 
-- **QS Bar Settings -> Community -> Discover -> Batteries -> Install**, or
-  `ryoku plugin add <this folder> --bar`.
+```
+ryoku plugin add https://github.com/7KiLL/ryoku-batteries --bar
+```
+
+It lands on the bar and under QS Bar Settings -> Community.
 - Optional: install `headsetcontrol` (AUR) for headsets that UPower can't see.
 
 ## How it plugs in
