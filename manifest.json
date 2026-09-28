@@ -1,7 +1,7 @@
 {
   "id": "batteries",
   "name": "Batteries",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "author": "l7kill <7killua@gmail.com>",
   "description": "Peripheral batteries on the bar: UPower and headsetcontrol built in, plus your own reader commands from one JSON config.",
   "license": "MIT",
@@ -21,7 +21,8 @@
     "bin/batteries",
     "bin/readers/headsetcontrol",
     "bin/readers/upower",
-    "schema/readers.schema.json"
+    "schema/readers.schema.json",
+    "assets/preview-widget.png"
   ],
   "capabilities": {
     "densities": [
