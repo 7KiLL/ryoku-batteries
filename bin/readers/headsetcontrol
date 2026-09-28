@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+"""Headsets via headsetcontrol. Its JSON already is the reader contract; this only
+tags kind=headset and turns 'headsetcontrol not installed' into zero devices."""
+import json, shutil, subprocess
+
+if not shutil.which("headsetcontrol"):
+    print('{"devices": []}')
+else:
+    out = subprocess.run(["headsetcontrol", "-o", "json", "-b"], capture_output=True, text=True).stdout
+    data = json.loads(out or '{"devices": []}')
+    for d in data.get("devices", []):
+        d.setdefault("kind", "headset")
+    print(json.dumps({"devices": data.get("devices", [])}))

@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""Run every battery reader and print the merged device list.
+
+Readers are executables in <plugin>/bin/readers/ (shipped) and
+$XDG_CONFIG_HOME/ryoku/batteries.d/ (yours). Each is run with no arguments and
+no shell, and prints {"devices": [{device, product, kind, battery: {status, level}, errors}]}
+(headsetcontrol's JSON shape; see README). Output adds `key` and `reader` per device.
+"""
+import json, os, subprocess, sys
+from concurrent.futures import ThreadPoolExecutor
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+USER_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
+                        "ryoku", "batteries.d")
+TIMEOUT = 15  # a hung reader costs one row, not the whole poll
+
+
+def readers():
+    for d in (os.path.join(HERE, "readers"), USER_DIR):
+        if os.path.isdir(d):
+            for f in sorted(os.listdir(d)):
+                p = os.path.join(d, f)
+                if os.path.isfile(p) and os.access(p, os.X_OK) and not f.startswith("."):
+                    yield p
+
+
+def normalize(name, text):
+    """Reader stdout -> device rows. Anything malformed becomes one error row."""
+    try:
+        devs = json.loads(text)["devices"]
+        assert isinstance(devs, list)
+    except Exception:
+        return [{"key": name, "reader": name, "product": name, "kind": "",
+                 "status": "BATTERY_UNAVAILABLE", "level": -1, "error": "invalid output"}]
+    rows = []
+    for d in devs:
+        b = d.get("battery") or {}
+        level = b.get("level", -1)
+        rows.append({
+            "key": f"{name}:{d.get('product') or d.get('device') or len(rows)}",
+            "reader": name,
+            "product": d.get("product") or d.get("device") or name,
+            "kind": d.get("kind", ""),
+            "status": b.get("status", "BATTERY_UNAVAILABLE"),
+            "level": level if isinstance(level, int) else -1,
+            "error": (d.get("errors") or {}).get("battery", ""),
+        })
+    return rows
+
+
+def run(path):
+    name = os.path.basename(path)
+    try:
+        p = subprocess.run([path], capture_output=True, text=True, timeout=TIMEOUT)
+        return normalize(name, p.stdout)
+    except subprocess.TimeoutExpired:
+        return [{**normalize(name, "")[0], "error": f"timed out after {TIMEOUT}s"}]
+    except OSError as e:
+        return [{**normalize(name, "")[0], "error": str(e)}]
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] == ["--test"]:
+        good = normalize("r", '{"devices":[{"product":"Kbd","kind":"keyboard","battery":{"status":"BATTERY_CHARGING","level":62}}]}')
+        assert good[0]["key"] == "r:Kbd" and good[0]["level"] == 62 and good[0]["kind"] == "keyboard"
+        assert normalize("r", "garbage")[0]["error"] == "invalid output"
+        assert normalize("r", '{"devices":[{"battery":{"level":"x"}}]}')[0]["level"] == -1
+        assert normalize("r", '{"devices":[]}') == []
+        print("ok"); sys.exit()
+    if os.environ.get("BATTERIES_STATE"):  # the panel's bar.json lives here
+        os.makedirs(os.environ["BATTERIES_STATE"], exist_ok=True)
+    with ThreadPoolExecutor() as ex:
+        rows = [r for rs in ex.map(run, list(readers())) for r in rs]
+    print(json.dumps({"devices": rows}))

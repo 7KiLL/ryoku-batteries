@@ -1,9 +1,9 @@
 {
   "id": "headset",
   "name": "Batteries",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": "l7kill <7killua@gmail.com>",
-  "description": "Headset and WLMouse battery on the bar (headsetcontrol + hidraw).",
+  "description": "Device batteries on the bar from drop-in reader scripts (headsetcontrol and WLMouse built in).",
   "license": "MIT",
   "official": false,
   "hosts": [
@@ -18,7 +18,9 @@
     "width": 320
   },
   "files": [
-    "bin/wlmouse-battery"
+    "bin/batteries",
+    "bin/readers/headsetcontrol",
+    "bin/readers/wlmouse"
   ],
   "capabilities": {
     "densities": [
@@ -32,53 +34,30 @@
   },
   "dependencies": {
     "commands": [
-      "headsetcontrol",
       "python3"
     ]
   },
   "metadata": {
     "settings": [
       {
-        "key": "headset",
-        "type": "toggle",
-        "label": "Headsets (headsetcontrol)",
-        "group": "Devices",
-        "default": true
-      },
-      {
-        "key": "wlmouse",
-        "type": "toggle",
-        "label": "WLMouse",
-        "group": "Devices",
-        "default": true
-      },
-      {
-        "key": "customReaders",
-        "type": "text",
-        "label": "Custom reader scripts (absolute paths, comma-separated)",
-        "group": "Devices",
-        "default": "",
-        "placeholder": "/home/me/bin/kbd-battery"
-      },
-      {
         "key": "showPercent",
         "type": "toggle",
         "label": "Show percentage",
-        "group": "Headset",
+        "group": "Display",
         "default": true
       },
       {
         "key": "hideOffline",
         "type": "toggle",
-        "label": "Hide when headset is off",
-        "group": "Headset",
+        "label": "Hide devices that are off",
+        "group": "Display",
         "default": false
       },
       {
         "key": "lowPercent",
         "type": "int",
         "label": "Low battery warning (%)",
-        "group": "Headset",
+        "group": "Display",
         "default": 15,
         "min": 5,
         "max": 50
@@ -87,17 +66,10 @@
         "key": "pollSec",
         "type": "int",
         "label": "Poll interval (seconds)",
-        "group": "Headset",
+        "group": "Display",
         "default": 60,
         "min": 10,
         "max": 600
-      },
-      {
-        "key": "barHidden",
-        "type": "text",
-        "label": "Hidden from bar (managed by the panel checkboxes)",
-        "group": "Advanced",
-        "default": ""
       }
     ]
   }
