@@ -17,11 +17,13 @@ Item {
     readonly property int low: cfg.lowPercent ?? 15
     readonly property bool showPercent: cfg.showPercent ?? true
     readonly property bool hideOffline: cfg.hideOffline ?? false
-    readonly property var shown: service ? service.devices.filter(d => d.level >= 0 || !hideOffline) : []
+    readonly property var shown: service ? service.barDevices.filter(d => d.level >= 0 || !hideOffline) : []
 
     function icon(d) {
         if (d.status === "BATTERY_CHARGING") return "\u{f0084}"; // nf-md battery_charging
-        return d.kind === "mouse" ? "\u{f037d}" : "\u{f02cb}";   // nf-md mouse / headphones
+        if (d.kind === "mouse") return "\u{f037d}";                // nf-md mouse
+        if (d.kind === "headset") return "\u{f02cb}";              // nf-md headphones
+        return "\u{f0079}";                                        // nf-md battery
     }
 
     visible: shown.length > 0
