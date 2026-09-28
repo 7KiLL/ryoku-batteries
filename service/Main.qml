@@ -50,6 +50,7 @@ Item {
     FileView {
         id: barFile
         path: svc.pluginApi ? svc.pluginApi.stateDir + "/bar.json" : ""
+        printErrors: false // absent until the first checkbox click
         onLoaded: {
             try { svc.barHidden = JSON.parse(barFile.text()).hidden || []; } catch (e) {}
         }

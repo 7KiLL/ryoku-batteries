@@ -1,7 +1,7 @@
 {
   "id": "headset",
   "name": "Batteries",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "author": "l7kill <7killua@gmail.com>",
   "description": "Device batteries on the bar from drop-in reader scripts (headsetcontrol and WLMouse built in).",
   "license": "MIT",
