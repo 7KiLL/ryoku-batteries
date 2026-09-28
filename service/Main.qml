@@ -18,6 +18,7 @@ Item {
     property string error: ""
     // The first device is what the glyph shows.
     readonly property var primary: devices.length > 0 ? devices[0] : null
+    readonly property bool busy: proc.running
 
     function refresh() {
         if (!proc.running) proc.running = true;

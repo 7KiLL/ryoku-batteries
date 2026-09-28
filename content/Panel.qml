@@ -32,11 +32,36 @@ Item {
         width: root.width - 24 * root.s
         spacing: 10 * root.s
 
-        Text {
-            text: "Headset"
-            color: Theme.bright
-            font.family: Theme.display
-            font.pixelSize: 16 * root.s
+        Item {
+            width: parent.width
+            height: title.implicitHeight
+
+            Text {
+                id: title
+                text: "Headset"
+                color: Theme.bright
+                font.family: Theme.display
+                font.pixelSize: 16 * root.s
+            }
+
+            Text {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: "\u{f0450}" // nf-md refresh
+                color: refreshArea.containsMouse ? Theme.accent : Theme.dim
+                opacity: root.service && root.service.busy ? 0.4 : 1
+                font.family: Theme.mono
+                font.pixelSize: 15 * root.s
+
+                MouseArea {
+                    id: refreshArea
+                    anchors.fill: parent
+                    anchors.margins: -6 * root.s
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: if (root.service) root.service.refresh()
+                }
+            }
         }
 
         Text {
@@ -96,28 +121,6 @@ Item {
                     font.family: Theme.font
                     font.pixelSize: 12 * root.s
                 }
-            }
-        }
-
-        Rectangle {
-            width: refreshLabel.implicitWidth + 24 * root.s
-            height: refreshLabel.implicitHeight + 12 * root.s
-            radius: Theme.radius
-            color: refreshArea.pressed ? Theme.vermDeep : Theme.accent
-
-            Text {
-                id: refreshLabel
-                anchors.centerIn: parent
-                text: "REFRESH"
-                color: Theme.cardBot
-                font.family: Theme.font
-                font.pixelSize: 12 * root.s
-            }
-
-            MouseArea {
-                id: refreshArea
-                anchors.fill: parent
-                onClicked: if (root.service) root.service.refresh()
             }
         }
     }
